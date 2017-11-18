@@ -18,7 +18,10 @@ import os, osproc, pegs
 import strutils, subexes, times
 
 const
-  copyright = """'Copyright' \s* \[* {\d+} \]* \s* \[* {\w+ \s* \w+} \]*"""
+  copyright = """
+  rule <- 'Copyright' \s+ year ( '-' year )? \s+ \[* {\w+ \s* \w+} \]*
+  year <- \[* {\d+} \]*
+  """
   initialCopyright = "Copyright [yyyy] [name of copyright owner]"
   copyrightTemplate = "Copyright $# $#"
 
@@ -33,17 +36,23 @@ proc getDefaultName(): string =
     raise newException(CommandError, output)
   result = output.strip()
 
-proc getLatestCopyright(name: string = "", year: int = -1): string =
+proc getLatestCopyright(name: string = "", startYear, endYear: int = -1): string =
   var
-    yearString = $year
+    yearString = $startYear
     name = name
   let
     currentYear = getLocalTime(getTime()).year
 
-  if year < 1:
-    yearString = $currentYear
-  elif year != currentYear:
-    yearString = subex("$#-$#") % [$year, $currentYear]
+  if startYear > 0 and endYear > 0:
+    if endYear != currentYear:
+      yearString = subex("$#-$#") % [$startYear, $currentYear]
+    else:
+      yearString = subex("$#-$#") % [$startYear, $endYear]
+  else:
+    if startYear < 1:
+      yearString = $currentYear
+    elif startYear != currentYear:
+      yearString = subex("$#-$#") % [$startYear, $currentYear]
 
   if name.isNilOrWhitespace():
     name = getDefaultName()
@@ -57,6 +66,12 @@ proc handleMatches(m: int, n: int, c: openarray[string]): string =
       name = c[1]
       year = parseInt(c[0])
     result = getLatestCopyright(name, year)
+  elif n == 3:
+    let
+      name = c[2]
+      startYear = parseInt(c[0])
+      endYear = parseInt(c[1])
+    result = getLatestCopyright(name, startYear, endYear)
   else:
     raise newException(SyntaxError, "")
 
